@@ -1,0 +1,16 @@
+.vs/
+.vscode/
+ipch/
+bin/
+obj/
+*.suo
+*.user
+*.aps
+*.ncb
+*.sqlite
+*.db
+*.opensdf
+*.sdf
+*.psess
+*.vsp
+*.vspx
