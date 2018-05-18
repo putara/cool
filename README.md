@@ -1,4 +1,4 @@
-﻿# Introduction
+# Introduction
 A bunch of _cool_ UI components to modernise good old WinForms apps.
 
 ## Prerequisites
@@ -18,7 +18,7 @@ A bunch of _cool_ UI components to modernise good old WinForms apps.
 - Some utility classes
 
 ## Screenshots
-TBA.
+<img alt="Sample #1" src="../assets/sample1.png?raw=true" width="320"><img alt="Sample #2" src="../assets/sample2.png?raw=true" width="224">
 
 ## License
 Released under the [WTFPL](http://www.wtfpl.net/about/).
