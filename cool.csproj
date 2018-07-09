@@ -48,6 +48,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controls\AnnotationLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\CaptionBar.cs">
       <SubType>Component</SubType>
     </Compile>

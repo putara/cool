@@ -39,7 +39,7 @@
             this.column1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.panel1 = new Cool.DoubleBufferedPanel();
             this.panel2 = new Cool.DoubleBufferedPanel();
-            this.expiry = new System.Windows.Forms.Label();
+            this.expiry = new Cool.AnnotationLabel();
             this.datePicker = new Cool.DateTimePickerEx();
             this.linkPanel = new Cool.LinkPanel();
             this.status = new Cool.StatusStripFix();
@@ -134,12 +134,14 @@
             // 
             // expiry
             // 
+            this.expiry.BackColor = System.Drawing.Color.Transparent;
             this.expiry.Dock = System.Windows.Forms.DockStyle.Fill;
             this.expiry.Location = new System.Drawing.Point(8, 31);
             this.expiry.Name = "expiry";
             this.expiry.Padding = new System.Windows.Forms.Padding(0, 8, 0, 8);
             this.expiry.Size = new System.Drawing.Size(224, 244);
             this.expiry.TabIndex = 1;
+            this.expiry.TextAlign = System.Drawing.ContentAlignment.TopLeft;
             this.expiry.Visible = false;
             // 
             // datePicker
@@ -237,7 +239,7 @@
         private System.Windows.Forms.ColumnHeader column1;
         private LinkPanel linkPanel;
         private DateTimePickerEx datePicker;
-        private System.Windows.Forms.Label expiry;
+        private AnnotationLabel expiry;
         private DoubleBufferedPanel panel2;
     }
 }

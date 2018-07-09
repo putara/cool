@@ -12,6 +12,7 @@ A bunch of _cool_ UI components to modernise good old WinForms apps.
 - Explorer-style splitter bar
 - Double buffered panel
 - Hyper link with an icon and a description
+- Label with an icon
 - Date time picker that accepts `null` as its value
 - Status strip without a hit-testing issue
 - Task dialog
