@@ -21,4 +21,5 @@ A bunch of _cool_ UI components to modernise good old WinForms apps.
 <img alt="Sample #1" src="../assets/sample1.png?raw=true" width="320"><img alt="Sample #2" src="../assets/sample2.png?raw=true" width="224">
 
 ## License
-Released under the [WTFPL](http://www.wtfpl.net/about/).
+This is free and unencumbered software released into the public domain.
+For more information, please refer to [unlicense.org](https://unlicense.org/).
