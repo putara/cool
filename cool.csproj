@@ -57,6 +57,9 @@
     <Compile Include="Controls\CoolListView.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\CoolTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\DateTimePickerEx.cs">
       <SubType>Component</SubType>
     </Compile>
