@@ -26,7 +26,15 @@ namespace Cool
 
         public static void SetTextBoxCueBanner(TextBoxBase textBox, string cueBannerText)
         {
-            UnsafeNativeMethods.SendMessageString(textBox.Handle, NativeMethods.EM_SETCUEBANNER, new IntPtr(1), cueBannerText);
+            UnsafeNativeMethods.SendMessage(textBox.Handle, NativeMethods.EM_SETCUEBANNER, 1, cueBannerText);
+        }
+
+        /// <summary>
+        /// Hide annoying focus rectangles.
+        /// </summary>
+        public static void HideAnnoyingFocusRectangles(IWin32Window window)
+        {
+            UnsafeNativeMethods.SendMessage(window.Handle, NativeMethods.WM_UPDATEUISTATE, NativeMethods.UIS_SET_UISF_HIDEFOCUS, 0);
         }
 
         [Conditional("DEBUG")]
@@ -83,6 +91,9 @@ namespace Cool
 
             private const uint ECM_FIRST = 0x1500;
             internal const uint EM_SETCUEBANNER = ECM_FIRST + 1;
+
+            public const uint WM_UPDATEUISTATE = 0x0128;
+            public const int UIS_SET_UISF_HIDEFOCUS = 0x10001; // MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS)
         }
 
         static class UnsafeNativeMethods
@@ -96,14 +107,17 @@ namespace Cool
             [DllImport("user32.dll", ExactSpelling = true)]
             internal static extern IntPtr GetFocus();
 
+            [DllImport("user32.dll", EntryPoint = "RegisterWindowMessageW", CharSet = CharSet.Unicode)]
+            internal static extern uint RegisterWindowMessage(string message);
+
             [DllImport("user32.dll", EntryPoint = "SendMessageW")]
             internal static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
 
-            [DllImport("user32.dll", EntryPoint = "SendMessageW", CharSet = CharSet.Unicode)]
-            internal static extern IntPtr SendMessageString(IntPtr hwnd, uint message, IntPtr wParam, string lParam);
+            [DllImport("user32.dll", EntryPoint = "SendMessageW")]
+            internal static extern IntPtr SendMessage(IntPtr hwnd, uint message, int wParam, int lParam);
 
-            [DllImport("user32.dll", EntryPoint = "RegisterWindowMessageW", CharSet = CharSet.Unicode)]
-            internal static extern uint RegisterWindowMessage(string message);
+            [DllImport("user32.dll", EntryPoint = "SendMessageW", CharSet = CharSet.Unicode)]
+            internal static extern IntPtr SendMessage(IntPtr hwnd, uint message, int wParam, string lParam);
         }
     }
 }
