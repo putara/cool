@@ -98,7 +98,7 @@ namespace Cool
                 item.Tag = value;
             }
             this.expiry.Text = value.HasValue ? $"Expires on {value:D}" : "Never expires";
-            this.expiry.AnnotationIcon = value.HasValue ? AnnotationIcon.Warning : AnnotationIcon.Information;
+            this.expiry.AnnotationType = value.HasValue ? AnnotationType.Warning : AnnotationType.Information;
         }
 
         #endregion

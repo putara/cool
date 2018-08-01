@@ -7,7 +7,7 @@ using Debug = System.Diagnostics.Debug;
 
 namespace Cool
 {
-    public enum AnnotationIcon
+    public enum AnnotationType
     {
         None,
         Application,
@@ -23,18 +23,31 @@ namespace Cool
         Warning     // = Exclamation
     }
 
+    public enum AnnotationIcon
+    {
+        None,
+        Small,
+        Large
+    }
+
     public class AnnotationLabel : Label, IDisposable
     {
         private const int CXY_PADDING = 2;
-        public static readonly Padding INNER_PADDING_DEFAULT = new Padding(CXY_PADDING);
+        private static readonly Padding INNER_PADDING_DEFAULT = new Padding(CXY_PADDING);
+        private const AnnotationType TYPE_DEFAULT = AnnotationType.None;
+        private const AnnotationIcon ICON_DEFAULT = AnnotationIcon.Small;
+        private const TextImageRelation TIR_DEFAULT = TextImageRelation.ImageBeforeText;
 
-        AnnotationIcon iconType = AnnotationIcon.None;
-        Color backColour = Color.Empty;
-        Color foreColour = Color.Empty;
-        Icon cachedIcon;
-        Padding innerPadding = INNER_PADDING_DEFAULT;
+        private AnnotationType annotationType = TYPE_DEFAULT;
+        private AnnotationIcon annotationIcon = ICON_DEFAULT;
+        private TextImageRelation textImageRelation = TIR_DEFAULT;
+        private bool autoColour = false;
+        private Color backColour = Color.Empty;
+        private Color foreColour = Color.Empty;
+        private Icon cachedIcon;
+        private Padding innerPadding = INNER_PADDING_DEFAULT;
 
-        static class NativeMethods
+        private static class NativeMethods
         {
             public const int IDI_APPLICATION = 32512;
             public const int IDI_HAND = 32513;
@@ -48,7 +61,7 @@ namespace Cool
             public const uint LR_COPYFROMRESOURCE = 0x4000;
         }
 
-        static class UnsafeNativeMethods
+        private static class UnsafeNativeMethods
         {
             [DllImport("user32.dll", ExactSpelling = true)]
             public static extern int DestroyIcon(IntPtr hico);
@@ -58,15 +71,18 @@ namespace Cool
 
             [DllImport("user32.dll", ExactSpelling = true)]
             public static extern IntPtr CopyImage(IntPtr h, uint type, int cx, int cy, uint flags);
+
+            [DllImport("shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode)]
+            public static extern int ExtractIconEx(string lpszFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
         }
 
         public AnnotationLabel()
         {
             base.TextAlign = ContentAlignment.MiddleLeft;
 
-            ResetPadding();
-            ResetBackColor();
-            ResetForeColor();
+            this.ResetPadding();
+            this.ResetBackColor();
+            this.ResetForeColor();
         }
 
         protected override void Dispose(bool disposing)
@@ -81,18 +97,100 @@ namespace Cool
         }
 
         [
-            DefaultValue(AnnotationIcon.None)
+            Category(CategoryNames.Appearance),
+            DefaultValue(TYPE_DEFAULT)
+        ]
+        public AnnotationType AnnotationType
+        {
+            get
+            {
+                return this.annotationType;
+            }
+            set
+            {
+                if (this.annotationType != value)
+                {
+                    this.annotationType = value;
+                    ReloadIcon();
+                    if (this.autoColour)
+                    {
+                        this.ResetBackColor();
+                        this.ResetForeColor();
+                    }
+                }
+            }
+        }
+
+        [
+            Category(CategoryNames.Appearance),
+            DefaultValue(TIR_DEFAULT)
+        ]
+        public TextImageRelation TextImageRelation
+        {
+            get
+            {
+                return this.textImageRelation;
+            }
+            set
+            {
+                if (value != TextImageRelation.ImageBeforeText && value != TextImageRelation.TextBeforeImage)
+                {
+                    throw new ArgumentException("Only ImageBeforeText or TextBeforeImage are allowed.");
+                }
+                if (value != this.textImageRelation)
+                {
+                    this.textImageRelation = value;
+                    UpdateLayout();
+                }
+            }
+        }
+
+        [
+            Category(CategoryNames.Appearance),
+            DefaultValue(ICON_DEFAULT)
         ]
         public AnnotationIcon AnnotationIcon
         {
             get
             {
-                return this.iconType;
+                return this.annotationIcon;
             }
             set
             {
-                this.iconType = value;
-                ReloadIcon();
+                if (this.annotationIcon != value)
+                {
+                    this.annotationIcon = value;
+                    if (this.annotationType != AnnotationType.None)
+                    {
+                        ReloadIcon();
+                    }
+                }
+            }
+        }
+
+        [
+            Category(CategoryNames.Appearance),
+            DefaultValue(false)
+        ]
+        public bool AutoColour
+        {
+            get
+            {
+                return this.autoColour;
+            }
+            set
+            {
+                if (this.autoColour != value)
+                {
+                    var oldValue = this.autoColour;
+                    this.autoColour = value;
+
+                    if (value || oldValue)
+                    {
+                        this.ResetBackColor();
+                        this.ResetForeColor();
+                    }
+                }
             }
         }
 
@@ -102,12 +200,19 @@ namespace Cool
             {
                 if (this.backColour.IsEmpty)
                 {
-                    return SystemColors.Info;
+                    Color bg, fg;
+                    ColourFromKnownKnownAnnotationType(this.autoColour ? this.annotationType : AnnotationType.None, out bg, out fg);
+                    return bg;
                 }
                 return this.backColour;
             }
             set
             {
+                if (value.IsEmpty == false)
+                {
+                    this.AutoColour = false;
+                }
+
                 this.backColour = value;
                 base.BackColor = this.BackColor;
             }
@@ -129,12 +234,19 @@ namespace Cool
             {
                 if (this.foreColour.IsEmpty)
                 {
-                    return SystemColors.InfoText;
+                    Color bg, fg;
+                    ColourFromKnownKnownAnnotationType(this.autoColour ? this.annotationType : AnnotationType.None, out bg, out fg);
+                    return fg;
                 }
                 return this.foreColour;
             }
             set
             {
+                if (value.IsEmpty == false)
+                {
+                    this.AutoColour = false;
+                }
+
                 this.foreColour = value;
                 base.ForeColor = this.ForeColor;
             }
@@ -218,7 +330,12 @@ namespace Cool
                         y = CXY_PADDING;
                         break;
                 }
-                e.Graphics.DrawIcon(this.cachedIcon, CXY_PADDING + this.Padding.Left, y + this.Padding.Top);
+                var x = CXY_PADDING + this.Padding.Left;
+                if (this.IconIsLeft == false)
+                {
+                    x = this.Width - this.cachedIcon.Width - this.Padding.Right - CXY_PADDING;
+                }
+                e.Graphics.DrawIcon(this.cachedIcon, x, y + this.Padding.Top);
             }
         }
 
@@ -234,10 +351,20 @@ namespace Cool
             UpdateLayout();
         }
 
+        private bool IconIsLeft
+        {
+            get
+            {
+                return this.RightToLeft == RightToLeft.Yes
+                    ? this.TextImageRelation != TextImageRelation.ImageBeforeText
+                    : this.textImageRelation == TextImageRelation.ImageBeforeText;
+            }
+        }
+
         /// <summary>
         /// Recalculate padding sizes.
         /// </summary>
-        void UpdateLayout()
+        private void UpdateLayout()
         {
             this.SuspendLayout();
             var padding = this.Padding;
@@ -246,8 +373,14 @@ namespace Cool
 
             if (this.cachedIcon != null)
             {
-                // TODO: support RTL languages
-                this.innerPadding.Left += this.cachedIcon.Width;
+                if (this.IconIsLeft)
+                {
+                    this.innerPadding.Left += this.cachedIcon.Width;
+                }
+                else
+                {
+                    this.innerPadding.Right += this.cachedIcon.Width;
+                }
 
                 var cyActual = this.Height - base.Padding.Vertical;
                 var cyMin = this.cachedIcon.Height;
@@ -267,7 +400,7 @@ namespace Cool
         /// <summary>
         /// Reload cached icon.
         /// </summary>
-        void ReloadIcon()
+        private void ReloadIcon()
         {
             if (this.cachedIcon != null)
             {
@@ -275,66 +408,155 @@ namespace Cool
                 this.cachedIcon = null;
             }
 
-            int resId = ResourceIdFromKnownIconType(this.iconType);
-            if (resId != 0)
-            {
-                IntPtr hico = UnsafeNativeMethods.LoadIcon(IntPtr.Zero, new IntPtr(resId));
-                if (hico != IntPtr.Zero)
-                {
-                    var smallSize = SystemInformation.SmallIconSize;
-                    IntPtr hicoSmall = UnsafeNativeMethods.CopyImage(hico, NativeMethods.IMAGE_ICON, smallSize.Width, smallSize.Height, NativeMethods.LR_COPYFROMRESOURCE);
-                    if (hicoSmall != IntPtr.Zero)
-                    {
-                        var icon = Icon.FromHandle(hicoSmall);
-                        this.cachedIcon = new Icon(icon, smallSize);
-                        UnsafeNativeMethods.DestroyIcon(hicoSmall);
-                    }
-                    UnsafeNativeMethods.DestroyIcon(hico);
-                }
-            }
-
+            this.cachedIcon = LoadIconFromKnownAnnotationType(this.annotationType, this.annotationIcon);
             UpdateLayout();
         }
 
         /// <summary>
-        /// Convert AnnotationIcon value to Win32 system icon ID.
+        /// Load icon from the AnnotationType value.
         /// </summary>
-        /// <param name="icon">The value of AnnotationIcon property.</param>
-        /// <returns>The Icon ID.</returns>
-        static int ResourceIdFromKnownIconType(AnnotationIcon icon)
+        private static Icon LoadIconFromKnownAnnotationType(AnnotationType type, AnnotationIcon anicon)
         {
-            switch (icon)
+            if (type == AnnotationType.None || anicon == AnnotationIcon.None)
             {
-                case AnnotationIcon.None:
-                    return 0;
+                return null;
+            }
 
-                case AnnotationIcon.Application:
-                    return NativeMethods.IDI_APPLICATION;
+            var largeIcon = anicon == AnnotationIcon.Large;
+            if (type == AnnotationType.Application)
+            {
+                IntPtr hicoLarge, hicoSmall;
+                if (UnsafeNativeMethods.ExtractIconEx(Application.ExecutablePath, 0, out hicoLarge, out hicoSmall, 1) == 2)
+                {
+                    var icon = Icon.FromHandle(largeIcon ? hicoLarge : hicoSmall);
+                    var iconSize = largeIcon ? SystemInformation.IconSize : SystemInformation.SmallIconSize;
+                    icon = new Icon(icon, iconSize);
+                    UnsafeNativeMethods.DestroyIcon(hicoLarge);
+                    UnsafeNativeMethods.DestroyIcon(hicoSmall);
+                    return icon;
+                }
+                else
+                {
+                    // the app doesn't have an icon.
+                    return LoadIconFromSysIconID(NativeMethods.IDI_APPLICATION, largeIcon);
+                }
+            }
+            else
+            {
+                int resId = ResourceIdFromKnownAnnotationType(type);
+                return LoadIconFromSysIconID(resId, largeIcon);
+            }
+        }
 
-                case AnnotationIcon.Error:
-                case AnnotationIcon.Hand:
+        /// <summary>
+        /// Convert the AnnotationType value to the corresponding Win32 system icon ID.
+        /// </summary>
+        static int ResourceIdFromKnownAnnotationType(AnnotationType type)
+        {
+            switch (type)
+            {
+                case AnnotationType.Error:
+                case AnnotationType.Hand:
                     return NativeMethods.IDI_HAND;
 
-                case AnnotationIcon.Exclamation:
-                case AnnotationIcon.Warning:
+                case AnnotationType.Exclamation:
+                case AnnotationType.Warning:
                     return NativeMethods.IDI_EXCLAMATION;
 
-                case AnnotationIcon.Information:
-                case AnnotationIcon.Asterisk:
+                case AnnotationType.Information:
+                case AnnotationType.Asterisk:
                     return NativeMethods.IDI_ASTERISK;
 
-                case AnnotationIcon.Question:
+                case AnnotationType.Question:
                     return NativeMethods.IDI_QUESTION;
 
-                case AnnotationIcon.Shield:
+                case AnnotationType.Shield:
                     return NativeMethods.IDI_SHIELD;
 
-                case AnnotationIcon.WinLogo:
+                case AnnotationType.WinLogo:
                     return NativeMethods.IDI_WINLOGO;
             }
 
-            Debug.Fail("Not coming here.");
-            return 0;
+            throw new ArgumentException("type");
+        }
+
+        /// <summary>
+        /// Load icon from Win32 icon ID.
+        /// </summary>
+        private static Icon LoadIconFromSysIconID(int resId, bool largeIcon)
+        {
+            Icon icon = null;
+            IntPtr hico = UnsafeNativeMethods.LoadIcon(IntPtr.Zero, new IntPtr(resId));
+            if (hico != IntPtr.Zero)
+            {
+                var iconSize = largeIcon ? SystemInformation.IconSize : SystemInformation.SmallIconSize;
+                IntPtr hicoClone = UnsafeNativeMethods.CopyImage(hico, NativeMethods.IMAGE_ICON, iconSize.Width, iconSize.Height, NativeMethods.LR_COPYFROMRESOURCE);
+                if (hicoClone != IntPtr.Zero)
+                {
+                    icon = Icon.FromHandle(hicoClone);
+                    icon = new Icon(icon, iconSize);
+                    UnsafeNativeMethods.DestroyIcon(hicoClone);
+                }
+                UnsafeNativeMethods.DestroyIcon(hico);
+            }
+            return icon;
+        }
+
+        /// <summary>
+        /// Convert an AnnotationType value to the corresponding colours.
+        /// </summary>
+        /// <param name="type">The value of AnnotationType property.</param>
+        /// <param name="backColour">The background colour.</param>
+        /// <param name="foreColour">The foreground colour.</param>
+        private static void ColourFromKnownKnownAnnotationType(AnnotationType type, out Color backColour, out Color foreColour)
+        {
+            switch (type)
+            {
+                case AnnotationType.None:
+                    backColour = SystemColors.Info;
+                    foreColour = SystemColors.InfoText;
+                    return;
+
+                case AnnotationType.Application:
+                    backColour = SystemColors.Window;
+                    foreColour = SystemColors.WindowText;
+                    return;
+
+                case AnnotationType.WinLogo:
+                    backColour = SystemColors.Window;
+                    foreColour = SystemColors.WindowText;
+                    return;
+
+                case AnnotationType.Error:
+                case AnnotationType.Hand:
+                    backColour = Color.MistyRose;
+                    foreColour = Color.Black;
+                    return;
+
+                case AnnotationType.Exclamation:
+                case AnnotationType.Warning:
+                    backColour = Color.LemonChiffon;
+                    foreColour = Color.Black;
+                    return;
+
+                case AnnotationType.Information:
+                case AnnotationType.Asterisk:
+                    backColour = Color.Honeydew;
+                    foreColour = Color.Black;
+                    return;
+
+                case AnnotationType.Shield:
+                    backColour = Color.PapayaWhip;
+                    foreColour = Color.Black;
+                    return;
+
+                case AnnotationType.Question:
+                    backColour = Color.LightCyan;
+                    foreColour = Color.Black;
+                    return;
+            }
+
+            throw new ArgumentException("type");
         }
     }
 }

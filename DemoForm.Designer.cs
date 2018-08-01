@@ -134,14 +134,13 @@
             // 
             // expiry
             // 
-            this.expiry.BackColor = System.Drawing.Color.Transparent;
-            this.expiry.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.expiry.AutoColour = true;
+            this.expiry.Dock = System.Windows.Forms.DockStyle.Top;
             this.expiry.Location = new System.Drawing.Point(8, 31);
             this.expiry.Name = "expiry";
             this.expiry.Padding = new System.Windows.Forms.Padding(0, 8, 0, 8);
-            this.expiry.Size = new System.Drawing.Size(224, 244);
+            this.expiry.Size = new System.Drawing.Size(224, 35);
             this.expiry.TabIndex = 1;
-            this.expiry.TextAlign = System.Drawing.ContentAlignment.TopLeft;
             this.expiry.Visible = false;
             // 
             // datePicker
