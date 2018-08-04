@@ -7,20 +7,6 @@ namespace Cool
 {
     public partial class DemoForm : Form
     {
-        #region P/Invoke
-
-        private static class UnsafeNativeMethods
-        {
-            [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "LoadLibraryW")]
-            internal static extern IntPtr LoadLibrary(string path);
-            [DllImport("user32.dll", ExactSpelling = true)]
-            internal static extern int DestroyIcon(IntPtr hico);
-            [DllImport("comctl32.dll", ExactSpelling = true)]
-            internal static extern int LoadIconWithScaleDown(IntPtr hinst, IntPtr name, int cx, int cy, out IntPtr hico);
-        }
-
-        #endregion
-
         public DemoForm()
         {
             InitializeComponent();
@@ -29,14 +15,13 @@ namespace Cool
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            // !!FOR DEMONSTRATION PURPOSES ONLY!!
-            // add a bunch of icons in a hacky way
-            AddListItemsLazy(16, "Computer", 18, "Network", 33, "Recycle Bin", 22, "Control Panel", 17, "Printer", 226, "Camera", 23, "Search", 24, "Help", 160, "Run", 166, "Disk", 48, "Lock", 161, "Warning", 4, "Folder", 1, "File");
+            // add stock icons
+            this.PopulateListView();
             this.panel1.BackgroundImage = Painter.CreateDiagonalGradient(256, Color.White, Color.FromArgb(224, 240, 255));
-            this.toolStrip.Renderer = new SimpleToolStripRenderer(Color.NavajoWhite, Color.SandyBrown, Color.FromArgb(255, 192, 80), Color.Chocolate);
+            this.toolStrip.Renderer = new SimpleToolStripRenderer(Color.Coral, Color.Tomato, Color.Firebrick, Color.DarkRed);
         }
 
-        #region "Event Handlers"
+        #region Event Handlers
 
         private void exitMenu_Click(object sender, EventArgs e)
         {
@@ -97,26 +82,41 @@ namespace Cool
             {
                 item.Tag = value;
             }
-            this.expiry.Text = value.HasValue ? $"Expires on {value:D}" : "Never expires";
-            this.expiry.AnnotationType = value.HasValue ? AnnotationType.Warning : AnnotationType.Information;
+            if (value.HasValue)
+            {
+                // valid until 11:59:59 pm
+                if (DateTime.Now.CompareTo(value.Value.AddSeconds(86399)) > 0)
+                {
+                    this.expiry.Text = "Already expired";
+                    this.expiry.AnnotationType = AnnotationType.Error;
+                }
+                else
+                {
+                    this.expiry.Text = $"Expires on {value:D}";
+                    this.expiry.AnnotationType = AnnotationType.Warning;
+                }
+            }
+            else
+            {
+                this.expiry.Text = "Never expires";
+                this.expiry.AnnotationType = AnnotationType.Information;
+            }
         }
 
         #endregion
 
-        private void AddListItemsLazy(params object[] args)
+        private void PopulateListView()
         {
-            var hmod = UnsafeNativeMethods.LoadLibrary("shell32.dll");
-            for (var i = 0; i < args.Length; i += 2)
+            foreach (ShellUtils.StockIcon stockIcon in Enum.GetValues(typeof(ShellUtils.StockIcon)))
             {
-                IntPtr hico;
-                if (UnsafeNativeMethods.LoadIconWithScaleDown(hmod, new IntPtr((int)args[i]), 256, 256, out hico) >= 0)
+                using (var icon = ShellUtils.GetStockIcon(stockIcon, ShellUtils.IconSize.ShellSize))
                 {
-                    using (var icon = Icon.FromHandle(hico))
+                    if (this.imageList.Images.Count == 0)
                     {
-                        this.imageList.Images.Add(icon);
-                        this.listView.Items.Add((string)args[i + 1], this.imageList.Images.Count - 1);
+                        this.imageList.ImageSize = icon.Size;
                     }
-                    UnsafeNativeMethods.DestroyIcon(hico);
+                    this.imageList.Images.Add(icon);
+                    this.listView.Items.Add(stockIcon.ToString(), this.imageList.Images.Count - 1);
                 }
             }
         }
