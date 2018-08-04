@@ -47,35 +47,6 @@ namespace Cool
         private Icon cachedIcon;
         private Padding innerPadding = INNER_PADDING_DEFAULT;
 
-        private static class NativeMethods
-        {
-            public const int IDI_APPLICATION = 32512;
-            public const int IDI_HAND = 32513;
-            public const int IDI_QUESTION = 32514;
-            public const int IDI_EXCLAMATION = 32515;
-            public const int IDI_ASTERISK = 32516;
-            public const int IDI_WINLOGO = 32517;
-            public const int IDI_SHIELD = 32518;
-
-            public const uint IMAGE_ICON = 1;
-            public const uint LR_COPYFROMRESOURCE = 0x4000;
-        }
-
-        private static class UnsafeNativeMethods
-        {
-            [DllImport("user32.dll", ExactSpelling = true)]
-            public static extern int DestroyIcon(IntPtr hico);
-
-            [DllImport("user32.dll", EntryPoint = "LoadIconW", CharSet = CharSet.Unicode)]
-            public static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
-
-            [DllImport("user32.dll", ExactSpelling = true)]
-            public static extern IntPtr CopyImage(IntPtr h, uint type, int cx, int cy, uint flags);
-
-            [DllImport("shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode)]
-            public static extern int ExtractIconEx(string lpszFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
-        }
-
         public AnnotationLabel()
         {
             base.TextAlign = ContentAlignment.MiddleLeft;
@@ -425,81 +396,46 @@ namespace Cool
             var largeIcon = anicon == AnnotationIcon.Large;
             if (type == AnnotationType.Application)
             {
-                IntPtr hicoLarge, hicoSmall;
-                if (UnsafeNativeMethods.ExtractIconEx(Application.ExecutablePath, 0, out hicoLarge, out hicoSmall, 1) == 2)
-                {
-                    var icon = Icon.FromHandle(largeIcon ? hicoLarge : hicoSmall);
-                    var iconSize = largeIcon ? SystemInformation.IconSize : SystemInformation.SmallIconSize;
-                    icon = new Icon(icon, iconSize);
-                    UnsafeNativeMethods.DestroyIcon(hicoLarge);
-                    UnsafeNativeMethods.DestroyIcon(hicoSmall);
-                    return icon;
-                }
-                else
-                {
-                    // the app doesn't have an icon.
-                    return LoadIconFromSysIconID(NativeMethods.IDI_APPLICATION, largeIcon);
-                }
+                return ShellUtils.ExtractIcon(Application.ExecutablePath, largeIcon ? ShellUtils.IconSize.Large : ShellUtils.IconSize.Small);
             }
             else
             {
-                int resId = ResourceIdFromKnownAnnotationType(type);
-                return LoadIconFromSysIconID(resId, largeIcon);
+                var stockIcon = StockIconIdFromKnownAnnotationType(type);
+                return ShellUtils.GetStockIcon(stockIcon, largeIcon ? ShellUtils.IconSize.Large : ShellUtils.IconSize.Small);
             }
         }
 
         /// <summary>
-        /// Convert the AnnotationType value to the corresponding Win32 system icon ID.
+        /// Convert the AnnotationType value to the corresponding shell stock icon ID.
         /// </summary>
-        static int ResourceIdFromKnownAnnotationType(AnnotationType type)
+        static ShellUtils.StockIcon StockIconIdFromKnownAnnotationType(AnnotationType type)
         {
             switch (type)
             {
                 case AnnotationType.Error:
                 case AnnotationType.Hand:
-                    return NativeMethods.IDI_HAND;
+                    return ShellUtils.StockIcon.Error;
 
                 case AnnotationType.Exclamation:
                 case AnnotationType.Warning:
-                    return NativeMethods.IDI_EXCLAMATION;
+                    return ShellUtils.StockIcon.Warning;
 
                 case AnnotationType.Information:
                 case AnnotationType.Asterisk:
-                    return NativeMethods.IDI_ASTERISK;
+                    return ShellUtils.StockIcon.Info;
 
                 case AnnotationType.Question:
-                    return NativeMethods.IDI_QUESTION;
+                    return ShellUtils.StockIcon.Help;
 
                 case AnnotationType.Shield:
-                    return NativeMethods.IDI_SHIELD;
+                    return ShellUtils.StockIcon.Shield;
 
                 case AnnotationType.WinLogo:
-                    return NativeMethods.IDI_WINLOGO;
+                    // WinLogo is leftover from Win95
+                    return ShellUtils.StockIcon.Application;
             }
 
             throw new ArgumentException("type");
-        }
-
-        /// <summary>
-        /// Load icon from Win32 icon ID.
-        /// </summary>
-        private static Icon LoadIconFromSysIconID(int resId, bool largeIcon)
-        {
-            Icon icon = null;
-            IntPtr hico = UnsafeNativeMethods.LoadIcon(IntPtr.Zero, new IntPtr(resId));
-            if (hico != IntPtr.Zero)
-            {
-                var iconSize = largeIcon ? SystemInformation.IconSize : SystemInformation.SmallIconSize;
-                IntPtr hicoClone = UnsafeNativeMethods.CopyImage(hico, NativeMethods.IMAGE_ICON, iconSize.Width, iconSize.Height, NativeMethods.LR_COPYFROMRESOURCE);
-                if (hicoClone != IntPtr.Zero)
-                {
-                    icon = Icon.FromHandle(hicoClone);
-                    icon = new Icon(icon, iconSize);
-                    UnsafeNativeMethods.DestroyIcon(hicoClone);
-                }
-                UnsafeNativeMethods.DestroyIcon(hico);
-            }
-            return icon;
         }
 
         /// <summary>
@@ -510,6 +446,7 @@ namespace Cool
         /// <param name="foreColour">The foreground colour.</param>
         private static void ColourFromKnownKnownAnnotationType(AnnotationType type, out Color backColour, out Color foreColour)
         {
+            // TODO: support high contrast
             switch (type)
             {
                 case AnnotationType.None:
