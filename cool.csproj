@@ -91,6 +91,7 @@
     <Compile Include="Utils\Comparison.cs" />
     <Compile Include="Utils\GraphicUtils.cs" />
     <Compile Include="Utils\Painter.cs" />
+    <Compile Include="Utils\ShellUtils.cs" />
     <Compile Include="Utils\SimpleToolStripRenderer.cs" />
     <Compile Include="Utils\TaskDialog.cs" />
     <Compile Include="Utils\WindowUtils.cs" />
