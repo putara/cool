@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using System.ComponentModel;
 
 namespace Cool
 {
@@ -9,6 +10,8 @@ namespace Cool
     /// </summary>
     public class CoolTreeView : TreeView
     {
+        private bool fadeInOutExpandos = true;
+
         #region P/Invoke
 
         static class NativeMethods
@@ -32,13 +35,40 @@ namespace Cool
             base.DoubleBuffered = true;
         }
 
+        [
+            Category(CategoryNames.Behavior),
+            DefaultValue(true)
+        ]
+        public bool FadeInOutExpandos
+        {
+            get { return this.fadeInOutExpandos; }
+            set
+            {
+                this.fadeInOutExpandos = value;
+                this.SetExtendedStyles();
+            }
+        }
+
+        private void SetExtendedStyles()
+        {
+            if (this.Handle != IntPtr.Zero)
+            {
+                int styles = NativeMethods.TVS_EX_DOUBLEBUFFER;
+                if (this.fadeInOutExpandos)
+                {
+                    styles |= NativeMethods.TVS_EX_FADEINOUTEXPANDOS;
+                }
+                UnsafeNativeMethods.SendMessage(this.Handle, NativeMethods.TVM_SETEXTENDEDSTYLE, 0, styles);
+            }
+        }
+
         protected override void OnCreateControl()
         {
             base.OnCreateControl();
             WindowUtils.HideAnnoyingFocusRectangles(this);
             // the Explorer-style listview looks cooler than the standard listview.
             WindowUtils.SetExplorerStyleControl(this);
-            UnsafeNativeMethods.SendMessage(this.Handle, NativeMethods.TVM_SETEXTENDEDSTYLE, 0, NativeMethods.TVS_EX_DOUBLEBUFFER | NativeMethods.TVS_EX_FADEINOUTEXPANDOS);
+            this.SetExtendedStyles();
         }
 
         protected override void OnGotFocus(EventArgs e)
