@@ -54,6 +54,9 @@
     <Compile Include="Controls\CaptionBar.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\CoolLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\CoolListView.cs">
       <SubType>Component</SubType>
     </Compile>
