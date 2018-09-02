@@ -347,7 +347,7 @@ namespace Cool
 
             CalculateFormatFlags(ref textFormat, ref stringFormat);
 
-            var style = FontStyle.Regular;
+            var style = this.Font.Style & ~FontStyle.Underline;
             var active = this.mouseIn || this.Focused;
             var colour = active ? this.ActiveLinkColor : this.LinkColor;
 
