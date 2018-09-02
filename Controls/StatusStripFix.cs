@@ -25,8 +25,8 @@ namespace Cool
                                 ? NativeMethods.HTBOTTOMLEFT
                                 : NativeMethods.HTBOTTOMRIGHT;
                     m.Result = new IntPtr(hitTest);
+                    return;
                 }
-                return;
             }
             base.WndProc(ref m);
         }
