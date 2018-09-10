@@ -145,9 +145,9 @@ namespace Cool
             }
         }
 
-        protected override void OnCreateControl()
+        protected override void OnHandleCreated(EventArgs e)
         {
-            base.OnCreateControl();
+            base.OnHandleCreated(e);
             UpdateLayout();
         }
 

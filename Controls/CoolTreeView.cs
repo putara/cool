@@ -62,9 +62,9 @@ namespace Cool
             }
         }
 
-        protected override void OnCreateControl()
+        protected override void OnHandleCreated(EventArgs e)
         {
-            base.OnCreateControl();
+            base.OnHandleCreated(e);
             WindowUtils.HideAnnoyingFocusRectangles(this);
             // the Explorer-style listview looks cooler than the standard listview.
             WindowUtils.SetExplorerStyleControl(this);
