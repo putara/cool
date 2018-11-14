@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -115,6 +117,16 @@ namespace Cool
         }
 
         [Flags]
+        public enum FileIconOptions
+        {
+            LinkOverlay = 1,
+            Selected = 2,
+            OpenIcon = 4,
+            Overlays = 8,
+            DoNotAccessFile = 0x8000,
+        }
+
+        [Flags]
         public enum StockIconOptions
         {
             LinkOverlay = 1,
@@ -138,11 +150,37 @@ namespace Cool
             }
         }
 
+        public static Icon GetFileIcon(string filePath, IconSize size = IconSize.Large, FileIconOptions options = 0, System.IO.FileAttributes attributes = System.IO.FileAttributes.Normal)
+        {
+            var flags = ToFileIconFlags(size, options);
+            var sfi = new UnsafeNativeMethods.SHFILEINFO();
+
+            IntPtr sysImageList = UnsafeNativeMethods.SHGetFileInfo(filePath, attributes, ref sfi, UnsafeNativeMethods.SHFILEINFO.Sizeof(), flags);
+            if (sysImageList == IntPtr.Zero)
+            {
+                throw new Win32Exception("SHGetFileIconInfo failed.");
+            }
+            if (sfi.hIcon == IntPtr.Zero)
+            {
+                throw new Win32Exception("SHGetFileIconInfo failed.");
+            }
+
+            return HIconToIcon(sfi.hIcon);
+        }
+
+        public static Icon GetDefaultFileIcon(string filePath, IconSize size = IconSize.Large, bool folder = false)
+        {
+            var extension = Path.GetExtension(filePath);
+            var attribute = folder ? FileAttributes.Directory : FileAttributes.Normal;
+            return GetFileIcon(extension, size, FileIconOptions.DoNotAccessFile, attribute);
+        }
+
         public static Icon GetStockIcon(StockIcon stockIcon, IconSize size = IconSize.Large, StockIconOptions options = 0)
         {
-            uint flags = ToStockIconFlags(size, options);
-            UnsafeNativeMethods.SHSTOCKICONINFO sii = new UnsafeNativeMethods.SHSTOCKICONINFO();
+            var flags = ToStockIconFlags(size, options);
+            var sii = new UnsafeNativeMethods.SHSTOCKICONINFO();
             sii.cbSize = UnsafeNativeMethods.SHSTOCKICONINFO.Sizeof();
+
             int hr = UnsafeNativeMethods.SHGetStockIconInfo((int)stockIcon, flags, ref sii);
             if (hr != 0)
             {
@@ -153,9 +191,19 @@ namespace Cool
                 throw new NotSupportedException("The stock icon is not supported by the running OS.");
             }
 
-            var icon = CreateIconFromHandle(sii.hIcon);
-            UnsafeNativeMethods.DestroyIcon(sii.hIcon);
-            return icon;
+            return HIconToIcon(sii.hIcon);
+        }
+
+        private static Icon HIconToIcon(IntPtr hico)
+        {
+            try
+            {
+                return CreateIconFromHandle(hico);
+            }
+            finally
+            {
+                UnsafeNativeMethods.DestroyIcon(hico);
+            }
         }
 
         private static Icon CreateIconFromHandle(IntPtr hico)
@@ -166,6 +214,44 @@ namespace Cool
                 newIcon = new Icon(tmpIcon, tmpIcon.Size);
             }
             return newIcon;
+        }
+
+        private static uint ToFileIconFlags(IconSize size, FileIconOptions options)
+        {
+            uint flags = NativeMethods.SHGFI_ICON;
+            switch (size)
+            {
+                case IconSize.Large:
+                    flags |= NativeMethods.SHGFI_LARGEICON;
+                    break;
+                case IconSize.Small:
+                    flags |= NativeMethods.SHGFI_SMALLICON;
+                    break;
+                case IconSize.ShellSize:
+                    flags |= NativeMethods.SHGFI_SHELLICONSIZE;
+                    break;
+            }
+            if ((options & FileIconOptions.LinkOverlay) == FileIconOptions.LinkOverlay)
+            {
+                flags |= NativeMethods.SHGFI_LINKOVERLAY;
+            }
+            if ((options & FileIconOptions.Selected) == FileIconOptions.Selected)
+            {
+                flags |= NativeMethods.SHGFI_SELECTED;
+            }
+            if ((options & FileIconOptions.OpenIcon) == FileIconOptions.OpenIcon)
+            {
+                flags |= NativeMethods.SHGFI_OPENICON;
+            }
+            if ((options & FileIconOptions.Overlays) == FileIconOptions.Overlays)
+            {
+                flags |= NativeMethods.SHGFI_ADDOVERLAYS;
+            }
+            if ((options & FileIconOptions.DoNotAccessFile) == FileIconOptions.DoNotAccessFile)
+            {
+                flags |= NativeMethods.SHGFI_USEFILEATTRIBUTES;
+            }
+            return flags;
         }
 
         private static uint ToStockIconFlags(IconSize size, StockIconOptions options)
@@ -183,11 +269,11 @@ namespace Cool
                     flags |= NativeMethods.SHGSI_SHELLICONSIZE;
                     break;
             }
-            if (options.HasFlag(StockIconOptions.LinkOverlay))
+            if ((options & StockIconOptions.LinkOverlay) == StockIconOptions.LinkOverlay)
             {
                 flags |= NativeMethods.SHGSI_LINKOVERLAY;
             }
-            if (options.HasFlag(StockIconOptions.Selected))
+            if ((options & StockIconOptions.Selected) == StockIconOptions.Selected)
             {
                 flags |= NativeMethods.SHGSI_SELECTED;
             }
@@ -196,6 +282,25 @@ namespace Cool
 
         static class NativeMethods
         {
+            internal const uint SHGFI_ICON = 0x100;
+            //internal const uint SHGFI_DISPLAYNAME = 0x200;
+            //internal const uint SHGFI_TYPENAME = 0x400;
+            //internal const uint SHGFI_ATTRIBUTES = 0x800;
+            //internal const uint SHGFI_ICONLOCATION = 0x1000;
+            //internal const uint SHGFI_EXETYPE = 0x2000;
+            //internal const uint SHGFI_SYSICONINDEX = 0x4000;
+            internal const uint SHGFI_LINKOVERLAY = 0x8000;
+            internal const uint SHGFI_SELECTED = 0x10000;
+            //internal const uint SHGFI_ATTR_SPECIFIED = 0x20000;
+            internal const uint SHGFI_LARGEICON = 0;
+            internal const uint SHGFI_SMALLICON = 0x1;
+            internal const uint SHGFI_OPENICON = 0x2;
+            internal const uint SHGFI_SHELLICONSIZE = 0x4;
+            //internal const uint SHGFI_PIDL = 0x8;
+            internal const uint SHGFI_USEFILEATTRIBUTES = 0x10;
+            internal const uint SHGFI_ADDOVERLAYS = 0x20;
+            //internal const uint SHGFI_OVERLAYINDEX = 0x40;
+
             //internal const uint SHGSI_ICONLOCATION = 0;
             internal const uint SHGSI_ICON = 0x100;
             //internal const uint SHGSI_SYSICONINDEX = 0x4000;
@@ -213,6 +318,26 @@ namespace Cool
 
             [DllImport("shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode)]
             internal static extern int ExtractIconEx(string lpszFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
+
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+            internal struct SHFILEINFO
+            {
+                public IntPtr hIcon;
+                public int iIcon;
+                public uint dwAttributes;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+                public string szDisplayName;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+                public string szTypeName;
+
+                public static int Sizeof()
+                {
+                    return Marshal.SizeOf(typeof(SHFILEINFO));
+                }
+            }
+
+            [DllImport("shell32.dll", EntryPoint = "SHGetFileInfoW", CharSet = CharSet.Unicode)]
+            public static extern IntPtr SHGetFileInfo(string pszPath, FileAttributes dwFileAttributes, ref SHFILEINFO psfi, int cbFileInfo, uint uFlags);
 
             [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
             internal struct SHSTOCKICONINFO
